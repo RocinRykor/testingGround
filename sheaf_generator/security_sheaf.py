@@ -31,39 +31,39 @@ def generate_sheaf(host_level: int, security_rating: int, has_nasty_surprises: b
         current_step += roll_trigger_step(host_level)  # Increment Step Counter
         sheaf_step = SheafStep(current_step)  # Generate a new Sheaf Step
 
-        # DEBUG
-        current_count += 1
-
         # Step 2: Alert Level
 
-        # alertContainer = roll_alert_table(alert_level, steps_since_last_alert, False)
-        # generate_ic = True
+        alert_container = roll_alert_table(alert_level, steps_since_last_alert, False)
+        generate_ic = True
 
-        # if alertContainer.is_alert_step:
-        #     steps_since_last_alert = 0
-        #     alert_level += 1
+        if alert_container.get_is_alert_step():
+            steps_since_last_alert = 0
+            alert_level += 1
 
-        #     print(f"{current_step} -> Alert Status: {alert_level_table[alert_level]}")
+            print(f"{current_step} -> Alert Status: {alert_level_table[alert_level]}")
 
-        #     sheaf_step.set_title(alert_level_table[alert_level])
+            sheaf_step.set_title(alert_level_table[alert_level])
 
-        #     if host_level <= 1 or alert_level == 3:
-        #         generate_ic = False
-        #     else:
-        #         alertContainer = roll_alert_table(alert_level, steps_since_last_alert, True)
-        # else:
-        #     steps_since_last_alert += 1
+            if host_level <= 1 or alert_level == 3:
+                generate_ic = False
+            else:
+                alert_container = roll_alert_table(alert_level, steps_since_last_alert, True)
+        else:
+            steps_since_last_alert += 1
 
-        # if generate_ic:
-        #     sheaf_step.addIC(ProcessIC(alertContainer, current_step))
+        if generate_ic:
+            sheaf_step.add_ic(process_ic(alert_container, current_step))
 
-        # print(f"{current_step}: {sheaf_step.listIC()}")
+        print(f"{current_step}: {sheaf_step.list_ic()}")
+
+        # DEBUG
+        current_count += 1
 
 
 def roll_trigger_step(host_level: int) -> int:
     base_step = sum(basic_roll(1, 3))
 
-    print(base_step)
+    # print(base_step)
 
     switch = {
         0: base_step + 4,
@@ -75,15 +75,19 @@ def roll_trigger_step(host_level: int) -> int:
 
 
 class AlertContainer:
-    def __init__(self, level_ic=None, category_ic=None):
+    def __init__(self, level_ic=None, category_ic=None, is_alert_step=False):
         self.level_ic = level_ic
         self.category_ic = category_ic
+        self.is_alert_step = is_alert_step
 
     def get_level_ic(self):
         return self.level_ic
 
     def get_category_ic(self):
         return self.category_ic
+
+    def get_is_alert_step(self):
+        return self.is_alert_step
 
 
 def roll_alert_table(alert_level: int, steps_since_last_alert: int, limit_to_ic: bool) -> AlertContainer:
@@ -160,3 +164,7 @@ class SheafStep:
         else:
             return str(self.ic_list)
 
+
+def process_ic(alert_container: AlertContainer, current_step: int):
+    level = alert_container.get_level_ic()
+    return "Testing"
