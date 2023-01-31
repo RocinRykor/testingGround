@@ -1,7 +1,7 @@
 ###
 # Security Sheaf
 # Core Rulebook p.210
-# matrix p.115
+# Matrix p.115
 # Description: As the Decker performs illegitimate actions on a host, the host system will begin to rack up a security tally
 # At predetermined levels in the tally, or Trigger Steps, the host security will respond with IC or various alert stages.
 ###
@@ -9,6 +9,7 @@
 from typing import Dict
 from sheaf_generator.dice_roller import basic_roll
 from sheaf_generator import matrix_constants as matrix
+from sheaf_generator.ic_program import ICProgram, WhiteIC
 
 
 def generate_sheaf(host_level: int, security_rating: int, has_nasty_surprises: bool) -> None:
@@ -22,17 +23,19 @@ def generate_sheaf(host_level: int, security_rating: int, has_nasty_surprises: b
     alert_level = 0  # 0 = No Alert, 1 = Passive, 2 = Active, 3 = Shutdown
     steps_since_last_alert = 0
     current_step = 0
+
+    # Infinite Looping Failsafe Variables
     current_count = 0
+    max_count = 100
 
     print("STARTING:")
 
-    while alert_level < 3 and current_count < 100:  # Has not yet reached Alert Level: Shutdown
+    while alert_level < 3 and current_count < max_count:  # Has not yet reached Alert Level: Shutdown
         # Step 1: Trigger Step
         current_step += roll_trigger_step(host_level)  # Increment Step Counter
         sheaf_step = SheafStep(current_step)  # Generate a new Sheaf Step
 
         # Step 2: Alert Level
-
         alert_container = roll_alert_table(alert_level, steps_since_last_alert, False)
         generate_ic = True
 
@@ -44,6 +47,9 @@ def generate_sheaf(host_level: int, security_rating: int, has_nasty_surprises: b
 
             sheaf_step.set_title(alert_level_table[alert_level])
 
+            print(f"{sheaf_step.get_title()}")
+
+            # If A host is Blue or Green or has reach shutdown it won't generate more IC on an Alert Step
             if host_level <= 1 or alert_level == 3:
                 generate_ic = False
             else:
@@ -56,7 +62,7 @@ def generate_sheaf(host_level: int, security_rating: int, has_nasty_surprises: b
 
         print(f"{current_step}: {sheaf_step.list_ic()}")
 
-        # DEBUG
+        # Infinite Loop Failsafe
         current_count += 1
 
 
@@ -95,6 +101,8 @@ def roll_alert_table(alert_level: int, steps_since_last_alert: int, limit_to_ic:
 
     final_results = roll_result if limit_to_ic else roll_result + steps_since_last_alert
 
+    print(f"Final Results: {final_results}")
+
     if alert_level == 0:
         if final_results in [1, 2, 3]:
             return AlertContainer(matrix.WHITE, matrix.REACTIVE)
@@ -103,7 +111,7 @@ def roll_alert_table(alert_level: int, steps_since_last_alert: int, limit_to_ic:
         elif final_results in [6, 7]:
             return AlertContainer(matrix.GRAY, matrix.REACTIVE)
         else:
-            return AlertContainer()
+            return AlertContainer(is_alert_step=True)
     elif alert_level == 1:
         if final_results in [1, 2, 3]:
             return AlertContainer(matrix.WHITE, matrix.PROACTIVE)
@@ -112,7 +120,7 @@ def roll_alert_table(alert_level: int, steps_since_last_alert: int, limit_to_ic:
         elif final_results in [6, 7]:
             return AlertContainer(matrix.GRAY, matrix.PROACTIVE)
         else:
-            return AlertContainer()
+            return AlertContainer(is_alert_step=True)
     else:
         if final_results in [1, 2, 3]:
             return AlertContainer(matrix.GRAY, matrix.PROACTIVE)
@@ -121,7 +129,7 @@ def roll_alert_table(alert_level: int, steps_since_last_alert: int, limit_to_ic:
         elif final_results in [6, 7]:
             return AlertContainer(matrix.BLACK, None)
         else:
-            return AlertContainer()
+            return AlertContainer(is_alert_step=True)
 
 
 class SheafStep:
@@ -167,4 +175,6 @@ class SheafStep:
 
 def process_ic(alert_container: AlertContainer, current_step: int):
     level = alert_container.get_level_ic()
-    return "Testing"
+    if level == matrix.WHITE:
+        return ICProgram()
+        # return ic_program.WhiteIC(alert_container.get_category_ic(), current_step)
