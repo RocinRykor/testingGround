@@ -58,7 +58,7 @@ def generate_sheaf(host_level: int, security_rating: int, has_nasty_surprises: b
             steps_since_last_alert += 1
 
         if generate_ic:
-            sheaf_step.add_ic(process_ic(alert_container, current_step))
+            sheaf_step.add_ic(process_ic(alert_container, security_rating))
 
         print(f"{current_step}: {sheaf_step.list_ic()}")
 
@@ -101,7 +101,7 @@ def roll_alert_table(alert_level: int, steps_since_last_alert: int, limit_to_ic:
 
     final_results = roll_result if limit_to_ic else roll_result + steps_since_last_alert
 
-    print(f"Final Results: {final_results}")
+    # print(f"Final Results: {final_results}")
 
     if alert_level == 0:
         if final_results in [1, 2, 3]:
@@ -173,8 +173,8 @@ class SheafStep:
             return str(self.ic_list)
 
 
-def process_ic(alert_container: AlertContainer, current_step: int):
+def process_ic(alert_container: AlertContainer, host_level: int):
     level = alert_container.get_level_ic()
     if level == matrix.WHITE:
-        return ICProgram()
-        # return ic_program.WhiteIC(alert_container.get_category_ic(), current_step)
+        return WhiteIC(alert_container.get_category_ic(), host_level)
+
