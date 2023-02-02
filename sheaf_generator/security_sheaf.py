@@ -4,72 +4,28 @@
 # Matrix p.115
 # Description: As the Decker performs illegitimate actions on a host, the host system will begin to rack up a security tally
 # At predetermined levels in the tally, or Trigger Steps, the host security will respond with IC or various alert stages.
+
+# TODO List
+# 02-01-23: Started rewrite/cleanup -> Next Step, add process_ic function as part of ICProgram class
 ###
 
 from typing import Dict
-from sheaf_generator.dice_roller import basic_roll
+
 from sheaf_generator import matrix_constants as matrix
-from sheaf_generator.ic_program import ICProgram, WhiteIC
+from sheaf_generator.dice_roller import basic_roll
 
 
-def generate_sheaf(host_level: int, security_rating: int, has_nasty_surprises: bool) -> None:
-    alert_level_table: Dict[int, str] = {
-        0: matrix.NO_ALERT,
-        1: matrix.PASSIVE_ALERT,
-        2: matrix.ACTIVE_ALERT,
-        3: matrix.SHUTDOWN
-    }
+def roll_trigger_step(system_security_level: int) -> int:
+    """
+    The roll_trigger_step function takes the system security level (Blue, Green, Orange, Red) and converts it to a modifier and rolls 1d3 as a base-step.
+    It then adds the modifier to the base step
+    The function returns an integer representing the trigger step.
 
-    alert_level = 0  # 0 = No Alert, 1 = Passive, 2 = Active, 3 = Shutdown
-    steps_since_last_alert = 0
-    current_step = 0
-
-    # Infinite Looping Failsafe Variables
-    current_count = 0
-    max_count = 100
-
-    print("STARTING:")
-
-    while alert_level < 3 and current_count < max_count:  # Has not yet reached Alert Level: Shutdown
-        # Step 1: Trigger Step
-        current_step += roll_trigger_step(host_level)  # Increment Step Counter
-        sheaf_step = SheafStep(current_step)  # Generate a new Sheaf Step
-
-        # Step 2: Alert Level
-        alert_container = roll_alert_table(alert_level, steps_since_last_alert, False)
-        generate_ic = True
-
-        if alert_container.get_is_alert_step():
-            steps_since_last_alert = 0
-            alert_level += 1
-
-            print(f"{current_step} -> Alert Status: {alert_level_table[alert_level]}")
-
-            sheaf_step.set_title(alert_level_table[alert_level])
-
-            print(f"{sheaf_step.get_title()}")
-
-            # If A host is Blue or Green or has reach shutdown it won't generate more IC on an Alert Step
-            if host_level <= 1 or alert_level == 3:
-                generate_ic = False
-            else:
-                alert_container = roll_alert_table(alert_level, steps_since_last_alert, True)
-        else:
-            steps_since_last_alert += 1
-
-        if generate_ic:
-            sheaf_step.add_ic(process_ic(alert_container, security_rating))
-
-        print(f"{current_step}: {sheaf_step.list_ic()}")
-
-        # Infinite Loop Failsafe
-        current_count += 1
-
-
-def roll_trigger_step(host_level: int) -> int:
+    :param system_security_level:int: Determine the modifier for the base step
+    :return: A number based on the system security level
+    :doc-author: Rocin
+    """
     base_step = sum(basic_roll(1, 3))
-
-    # print(base_step)
 
     switch = {
         0: base_step + 4,
@@ -77,104 +33,181 @@ def roll_trigger_step(host_level: int) -> int:
         2: base_step + 2,
         3: base_step + 1
     }
-    return switch.get(host_level, "Invalid Number")
+    return switch.get(system_security_level, "Invalid Number")
+
+
+class SheafEvent:
+    """
+    The Sheaf Event is the description of any IC that is generated for a particular tally threshold
+    It will also denote any change in status to the alert level of the system
+    """
+    _current_step = 0
+    _title = ""
+    _ic_list = []
+    _is_construct = False
+    _is_party_cluster = False
+
+    @property
+    def current_step(self):
+        return self._current_step
+
+    @current_step.setter
+    def current_step(self, value):
+        self._current_step = value
+
+    @property
+    def title(self):
+        return self._title
+
+    @title.setter
+    def title(self, value):
+        self._title = value
+
+    @property
+    def ic_list(self):
+        return self._ic_list
+
+    @ic_list.setter
+    def ic_list(self, value):
+        self._ic_list = value
+
+    def __init__(self, current_step: int):
+        self._current_step = current_step
 
 
 class AlertContainer:
-    def __init__(self, level_ic=None, category_ic=None, is_alert_step=False):
-        self.level_ic = level_ic
-        self.category_ic = category_ic
+    def __init__(self, ic_level="", ic_category=None, is_alert_step=False):
+        self.ic_level = ic_level
+        self.ic_category = ic_category
         self.is_alert_step = is_alert_step
 
-    def get_level_ic(self):
-        return self.level_ic
+    def get_ic_level(self):
+        return self.ic_level
 
-    def get_category_ic(self):
-        return self.category_ic
+    def set_ic_level(self, ic_level):
+        self.ic_level = ic_level
+
+    def get_ic_category(self):
+        return self.ic_category
+
+    def set_ic_category(self, ic_category):
+        self.ic_category = ic_category
 
     def get_is_alert_step(self):
         return self.is_alert_step
 
+    def set_is_alert_step(self, is_alert_step):
+        self.is_alert_step = is_alert_step
 
-def roll_alert_table(alert_level: int, steps_since_last_alert: int, limit_to_ic: bool) -> AlertContainer:
-    roll_result = sum(basic_roll(1, 6))
+    def __str__(self):
 
-    final_results = roll_result if limit_to_ic else roll_result + steps_since_last_alert
-
-    # print(f"Final Results: {final_results}")
-
-    if alert_level == 0:
-        if final_results in [1, 2, 3]:
-            return AlertContainer(matrix.WHITE, matrix.REACTIVE)
-        elif final_results in [4, 5]:
-            return AlertContainer(matrix.WHITE, matrix.PROACTIVE)
-        elif final_results in [6, 7]:
-            return AlertContainer(matrix.GRAY, matrix.REACTIVE)
+        if self.get_ic_level() == matrix.BLACK:
+            return f"{matrix.BLACK} IC"
         else:
-            return AlertContainer(is_alert_step=True)
-    elif alert_level == 1:
-        if final_results in [1, 2, 3]:
-            return AlertContainer(matrix.WHITE, matrix.PROACTIVE)
-        elif final_results in [4, 5]:
-            return AlertContainer(matrix.GRAY, matrix.REACTIVE)
-        elif final_results in [6, 7]:
-            return AlertContainer(matrix.GRAY, matrix.PROACTIVE)
+            return f"{self.get_ic_category()}-{self.get_ic_level()} IC"
+
+    def roll_alert_table(self, system_alert_level: int, steps_since_last_alert: int,
+                         limit_to_ic_generation: bool = False):
+        """
+        The roll_alert_table function is used to determine what alerts are generated by the system or if there is a change is System Alert Level
+        It takes three arguments:
+            1) The current alert level of the system (0, 1, or 2). This determines what type of IC can be generated
+            2) The number of steps since the last alert was generated for this system. This value is added to any roll results and then compared against a list of possible results that can occur when rolling an Alert Table in SR5 (see matrix_constants file).
+            3) A boolean to indicate whether the steps_since_last_alert will be added to the roll, if it is not added, triggering an alert step is not possible and IC will be generated
+    
+            If the final results are high enough to trigger an alert step, no IC is generated at the time.
+    
+        :param system_alert_level:int: Determine which alert level to use for the current step
+        :param steps_since_last_alert:int: Track the number of steps since the last alert was triggered
+        :param limit_to_ic_generation:bool: Limit the alert table to only those that are used for generating IC
+        :return: AlertContainer containing information on IC Level and Category or if an alert step has been triggerd
+        :doc-author: Rocin
+        """
+        roll_result = sum(basic_roll())
+
+        final_results = roll_result if limit_to_ic_generation else roll_result + steps_since_last_alert
+
+        # print(f"Final Results: {final_results}")
+
+        if system_alert_level == 0:
+            if final_results in [1, 2, 3]:
+                self.add_ic(matrix.WHITE, matrix.REACTIVE)
+            elif final_results in [4, 5]:
+                self.add_ic(matrix.WHITE, matrix.PROACTIVE)
+            elif final_results in [6, 7]:
+                self.add_ic(matrix.GRAY, matrix.REACTIVE)
+            else:
+                self.set_is_alert_step(True)
+        elif system_alert_level == 1:
+            if final_results in [1, 2, 3]:
+                self.add_ic(matrix.WHITE, matrix.PROACTIVE)
+            elif final_results in [4, 5]:
+                self.add_ic(matrix.GRAY, matrix.REACTIVE)
+            elif final_results in [6, 7]:
+                self.add_ic(matrix.GRAY, matrix.PROACTIVE)
+            else:
+                self.set_is_alert_step(True)
         else:
-            return AlertContainer(is_alert_step=True)
-    else:
-        if final_results in [1, 2, 3]:
-            return AlertContainer(matrix.GRAY, matrix.PROACTIVE)
-        elif final_results in [4, 5]:
-            return AlertContainer(matrix.WHITE, matrix.PROACTIVE)
-        elif final_results in [6, 7]:
-            return AlertContainer(matrix.BLACK, None)
+            if final_results in [1, 2, 3]:
+                self.add_ic(matrix.GRAY, matrix.PROACTIVE)
+            elif final_results in [4, 5]:
+                self.add_ic(matrix.WHITE, matrix.PROACTIVE)
+            elif final_results in [6, 7]:
+                self.add_ic(matrix.BLACK, None)
+            else:
+                self.set_is_alert_step(True)
+
+        return self
+
+    def add_ic(self, ic_level, ic_category):
+        self.set_ic_level(ic_level)
+        self.set_ic_category(ic_category)
+
+
+def generate_sheaf(system_security_level: int, system_security_rating: int, has_nasty_surprises: bool) -> None:
+    alert_level_table: Dict[int, str] = {
+        0: matrix.NO_ALERT,
+        1: matrix.PASSIVE_ALERT,
+        2: matrix.ACTIVE_ALERT,
+        3: matrix.SHUTDOWN
+    }
+
+    # Initialize Variables
+    system_alert_level = 0  # Starts at No Alert
+    steps_since_last_alert = 0
+    current_step = 0
+    # Loop Fail Safe
+    max_steps = 100
+
+    # Loop until system reaches Shutdown Status or hits fail-safe limit
+    while system_alert_level < 3 and current_step < max_steps:
+        # Step 1: Calculate next Trigger Step
+        current_step += roll_trigger_step(system_security_level)
+
+        # Step 2: Generate a Sheaf Event for the current step
+        sheaf_step = SheafEvent(current_step)
+
+        # Step 3: Determine if the Alert Status of the system is changing or if the system is generating IC, packaged in an AlertContainer
+        alert_container = AlertContainer().roll_alert_table(system_alert_level, steps_since_last_alert)
+
+        # Step 4: Process The AlertContainer to check for changes in System Alert Level
+        if alert_container.get_is_alert_step():  # Sheaf Step has triggered a change in the Alert Level
+            steps_since_last_alert = 0
+            system_alert_level += 1
+
+            sheaf_step.title = alert_level_table[system_alert_level]
+
+            print(f"Alert Status: {alert_level_table[system_alert_level]}")
+
+            # If the Host is Blue or Green (Level Code 0 or 1), or it has reached Shutdown, it won't generate IC on an alert step and can continue
+            # Otherwise, re-roll the alert table and force generation of IC alongside the alert level
+            if not system_alert_level == 3 or system_security_level <= 1:
+                alert_container.roll_alert_table(system_alert_level, steps_since_last_alert, True)
         else:
-            return AlertContainer(is_alert_step=True)
+            steps_since_last_alert += 1
 
+        print(alert_container)
 
-class SheafStep:
-    def __init__(self, current_step):
-        self.current_step = current_step
-        self.title = ""
-        self.ic_list = []
-        self.is_construct = False
-        self.is_party_cluster = False
-
-    def get_title(self):
-        return self.title
-
-    def set_title(self, title):
-        self.title = title
-
-    def add_ic(self, ic_program):
-        self.ic_list.append(ic_program)
-
-    def is_construct(self):
-        return self.is_construct
-
-    def set_construct(self, is_construct):
-        self.is_construct = is_construct
-
-    def is_party_cluster(self):
-        return self.is_party_cluster
-
-    def set_party_cluster(self, is_party_cluster):
-        self.is_party_cluster = is_party_cluster
-
-    def get_ic_list(self):
-        return self.ic_list
-
-    def list_ic(self):
-        if len(self.ic_list) == 0:
-            return ""
-        elif len(self.ic_list) == 1:
-            return str(self.ic_list[0])
-        else:
-            return str(self.ic_list)
-
-
-def process_ic(alert_container: AlertContainer, host_level: int):
-    level = alert_container.get_level_ic()
-    if level == matrix.WHITE:
-        return WhiteIC(alert_container.get_category_ic(), host_level)
-
+        # Fail-safe and Debug
+        current_step += 1
+        print(f"Current Step: {current_step}")
