@@ -41,38 +41,13 @@ class SheafEvent:
     The Sheaf Event is the description of any IC that is generated for a particular tally threshold
     It will also denote any change in status to the alert level of the system
     """
-    _current_step = 0
-    _title = ""
-    _ic_list = []
-    _is_construct = False
-    _is_party_cluster = False
-
-    @property
-    def current_step(self):
-        return self._current_step
-
-    @current_step.setter
-    def current_step(self, value):
-        self._current_step = value
-
-    @property
-    def title(self):
-        return self._title
-
-    @title.setter
-    def title(self, value):
-        self._title = value
-
-    @property
-    def ic_list(self):
-        return self._ic_list
-
-    @ic_list.setter
-    def ic_list(self, value):
-        self._ic_list = value
+    title = ""
+    ic_list = []
+    is_construct = False
+    is_party_cluster = False
 
     def __init__(self, current_step: int):
-        self._current_step = current_step
+        self.current_step = current_step
 
 
 class AlertContainer:
@@ -81,30 +56,11 @@ class AlertContainer:
         self.ic_category = ic_category
         self.is_alert_step = is_alert_step
 
-    def get_ic_level(self):
-        return self.ic_level
-
-    def set_ic_level(self, ic_level):
-        self.ic_level = ic_level
-
-    def get_ic_category(self):
-        return self.ic_category
-
-    def set_ic_category(self, ic_category):
-        self.ic_category = ic_category
-
-    def get_is_alert_step(self):
-        return self.is_alert_step
-
-    def set_is_alert_step(self, is_alert_step):
-        self.is_alert_step = is_alert_step
-
     def __str__(self):
-
-        if self.get_ic_level() == matrix.BLACK:
+        if self.ic_level == matrix.BLACK:
             return f"{matrix.BLACK} IC"
         else:
-            return f"{self.get_ic_category()}-{self.get_ic_level()} IC"
+            return f"{self.ic_category}-{self.ic_level} IC"
 
     def roll_alert_table(self, system_alert_level: int, steps_since_last_alert: int,
                          limit_to_ic_generation: bool = False):
@@ -137,7 +93,7 @@ class AlertContainer:
             elif final_results in [6, 7]:
                 self.add_ic(matrix.GRAY, matrix.REACTIVE)
             else:
-                self.set_is_alert_step(True)
+                self.is_alert_step = True
         elif system_alert_level == 1:
             if final_results in [1, 2, 3]:
                 self.add_ic(matrix.WHITE, matrix.PROACTIVE)
@@ -146,7 +102,7 @@ class AlertContainer:
             elif final_results in [6, 7]:
                 self.add_ic(matrix.GRAY, matrix.PROACTIVE)
             else:
-                self.set_is_alert_step(True)
+                self.is_alert_step = True
         else:
             if final_results in [1, 2, 3]:
                 self.add_ic(matrix.GRAY, matrix.PROACTIVE)
@@ -155,13 +111,13 @@ class AlertContainer:
             elif final_results in [6, 7]:
                 self.add_ic(matrix.BLACK, None)
             else:
-                self.set_is_alert_step(True)
+                self.is_alert_step = True
 
         return self
 
     def add_ic(self, ic_level, ic_category):
-        self.set_ic_level(ic_level)
-        self.set_ic_category(ic_category)
+        self.ic_level = ic_level
+        self.ic_category = ic_category
 
 
 def generate_sheaf(system_security_level: int, system_security_rating: int, has_nasty_surprises: bool) -> None:
@@ -183,6 +139,7 @@ def generate_sheaf(system_security_level: int, system_security_rating: int, has_
     while system_alert_level < 3 and current_step < max_steps:
         # Step 1: Calculate next Trigger Step
         current_step += roll_trigger_step(system_security_level)
+        print(f"Current Step: {current_step}")
 
         # Step 2: Generate a Sheaf Event for the current step
         sheaf_step = SheafEvent(current_step)
@@ -191,7 +148,7 @@ def generate_sheaf(system_security_level: int, system_security_rating: int, has_
         alert_container = AlertContainer().roll_alert_table(system_alert_level, steps_since_last_alert)
 
         # Step 4: Process The AlertContainer to check for changes in System Alert Level
-        if alert_container.get_is_alert_step():  # Sheaf Step has triggered a change in the Alert Level
+        if alert_container.is_alert_step:  # Sheaf Step has triggered a change in the Alert Level
             steps_since_last_alert = 0
             system_alert_level += 1
 
@@ -201,7 +158,9 @@ def generate_sheaf(system_security_level: int, system_security_rating: int, has_
 
             # If the Host is Blue or Green (Level Code 0 or 1), or it has reached Shutdown, it won't generate IC on an alert step and can continue
             # Otherwise, re-roll the alert table and force generation of IC alongside the alert level
-            if not system_alert_level == 3 or system_security_level <= 1:
+            if system_alert_level <= 1 or system_alert_level == 3:
+                print("Alert Conditions -> No IC Generated")
+            else:
                 alert_container.roll_alert_table(system_alert_level, steps_since_last_alert, True)
         else:
             steps_since_last_alert += 1
@@ -210,4 +169,3 @@ def generate_sheaf(system_security_level: int, system_security_rating: int, has_
 
         # Fail-safe and Debug
         current_step += 1
-        print(f"Current Step: {current_step}")
