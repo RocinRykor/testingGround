@@ -39,13 +39,13 @@ class SheafEvent:
     The Sheaf Event is the description of any IC that is generated for a particular tally threshold
     It will also denote any change in status to the alert level of the system
     """
-    title = ""
-    ic_list = []
-    is_construct = False
-    is_party_cluster = False
 
     def __init__(self, current_step: int):
         self.current_step = current_step
+        self.title = ""
+        self.ic_list = []
+        self.is_construct = False
+        self.is_party_cluster = False
 
 
 class AlertContainer:

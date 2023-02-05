@@ -88,13 +88,12 @@ def ic_rating_table(i: int, i1: int, i2: int, i3: int) -> int:
 
 
 class ICProgram:
-    ic_type = None
-    ic_rating = 1
-    ic_options = []
-
     def __init__(self, ic_level_color: str = matrix.WHITE, ic_category: str = None):
         self.ic_level_color = ic_level_color
         self.ic_category = ic_category
+        self.ic_type = None
+        self.ic_rating = 1
+        self.ic_options = []
 
     def process_ic(self, system_security_rating: int):
         """
