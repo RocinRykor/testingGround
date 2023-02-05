@@ -4,15 +4,13 @@
 # Matrix p.115
 # Description: As the Decker performs illegitimate actions on a host, the host system will begin to rack up a security tally
 # At predetermined levels in the tally, or Trigger Steps, the host security will respond with IC or various alert stages.
-
-# TODO List
-# 02-01-23: Started rewrite/cleanup -> Next Step, add process_ic function as part of ICProgram class
 ###
 
 from typing import Dict
 
 from sheaf_generator import matrix_constants as matrix
 from sheaf_generator.dice_roller import basic_roll
+from sheaf_generator.ic_program import ICProgram
 
 
 def roll_trigger_step(system_security_level: int) -> int:
@@ -109,18 +107,26 @@ class AlertContainer:
             elif final_results in [4, 5]:
                 self.add_ic(matrix.WHITE, matrix.PROACTIVE)
             elif final_results in [6, 7]:
-                self.add_ic(matrix.BLACK, None)
+                self.add_ic(matrix.BLACK)
             else:
                 self.is_alert_step = True
 
         return self
 
-    def add_ic(self, ic_level, ic_category):
+    def add_ic(self, ic_level: str, ic_category: str = None):
+        """
+        The add_ic function sets the level code (color) and category (Reactive, or Proactive) for an IC
+
+        :param self: Refer to the object itself
+        :param ic_level:str: Level Code (White, Gray, Black) for an IC
+        :param ic_category:str: Category (Reactive or Proactive) of an IC
+        :doc-author: Rocin
+        """
         self.ic_level = ic_level
         self.ic_category = ic_category
 
 
-def generate_sheaf(system_security_level: int, system_security_rating: int, has_nasty_surprises: bool) -> None:
+def generate_sheaf(system_security_level: int, system_security_rating: int) -> None:
     alert_level_table: Dict[int, str] = {
         0: matrix.NO_ALERT,
         1: matrix.PASSIVE_ALERT,
@@ -142,7 +148,7 @@ def generate_sheaf(system_security_level: int, system_security_rating: int, has_
         print(f"Current Step: {current_step}")
 
         # Step 2: Generate a Sheaf Event for the current step
-        sheaf_step = SheafEvent(current_step)
+        sheaf_event = SheafEvent(current_step)
 
         # Step 3: Determine if the Alert Status of the system is changing or if the system is generating IC, packaged in an AlertContainer
         alert_container = AlertContainer().roll_alert_table(system_alert_level, steps_since_last_alert)
@@ -152,20 +158,23 @@ def generate_sheaf(system_security_level: int, system_security_rating: int, has_
             steps_since_last_alert = 0
             system_alert_level += 1
 
-            sheaf_step.title = alert_level_table[system_alert_level]
+            sheaf_event.title = alert_level_table[system_alert_level]
 
             print(f"Alert Status: {alert_level_table[system_alert_level]}")
 
             # If the Host is Blue or Green (Level Code 0 or 1), or it has reached Shutdown, it won't generate IC on an alert step and can continue
             # Otherwise, re-roll the alert table and force generation of IC alongside the alert level
-            if system_alert_level <= 1 or system_alert_level == 3:
-                print("Alert Conditions -> No IC Generated")
-            else:
+            if not (system_alert_level <= 1 or system_alert_level == 3):
                 alert_container.roll_alert_table(system_alert_level, steps_since_last_alert, True)
         else:
             steps_since_last_alert += 1
 
-        print(alert_container)
+        # Step 5: Generate IC and add to list for Sheaf Event
+        if alert_container.ic_level:
+            ic_program = ICProgram(alert_container.ic_level, alert_container.ic_category).process_ic(
+                system_security_rating)
+
+            print(ic_program)
 
         # Fail-safe and Debug
         current_step += 1
