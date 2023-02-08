@@ -6,7 +6,7 @@
 # At predetermined levels in the tally, or Trigger Steps, the host security will respond with IC or various alert stages.
 ###
 
-from typing import Dict
+from typing import Dict, List
 
 from sheaf_generator import matrix_constants as matrix
 from sheaf_generator.dice_roller import basic_roll
@@ -34,6 +34,19 @@ def roll_trigger_step(system_security_level: int) -> int:
     return switch.get(system_security_level, "Invalid Number")
 
 
+def print_ic_list(ic_list):
+    string = ""
+    if ic_list:
+        if len(ic_list) > 1:
+            for ic_program in ic_list:
+                string += f"{ic_program}\n"
+            return string
+        else:
+            return ic_list[0]
+    else:
+        return None
+
+
 class SheafEvent:
     """
     The Sheaf Event is the description of any IC that is generated for a particular tally threshold
@@ -46,6 +59,12 @@ class SheafEvent:
         self.ic_list = []
         self.is_construct = False
         self.is_party_cluster = False
+
+    def __str__(self):
+        if self.ic_list:
+            return f"{self.current_step}: {print_ic_list(self.ic_list)}"
+        else:
+            return f"{self.current_step}: {self.title}"
 
 
 class AlertContainer:
@@ -126,7 +145,7 @@ class AlertContainer:
         self.ic_category = ic_category
 
 
-def generate_sheaf(system_security_level: int, system_security_rating: int) -> None:
+def generate_sheaf(system_security_level: int, system_security_rating: int) -> list[SheafEvent]:
     alert_level_table: Dict[int, str] = {
         0: matrix.NO_ALERT,
         1: matrix.PASSIVE_ALERT,
@@ -140,6 +159,8 @@ def generate_sheaf(system_security_level: int, system_security_rating: int) -> N
     current_step = 0
     # Loop Fail Safe
     max_steps = 100
+
+    sheaf_step_list = []
 
     # Loop until system reaches Shutdown Status or hits fail-safe limit
     while system_alert_level < 3 and current_step < max_steps:
@@ -174,7 +195,14 @@ def generate_sheaf(system_security_level: int, system_security_rating: int) -> N
             ic_program = ICProgram(alert_container.ic_level, alert_container.ic_category).process_ic(
                 system_security_rating)
 
+            sheaf_event.ic_list.append(ic_program)
+
             print(ic_program)
+
+        sheaf_step_list.append(sheaf_event)
 
         # Fail-safe and Debug
         current_step += 1
+
+    print("Complete!\n\n")
+    return sheaf_step_list

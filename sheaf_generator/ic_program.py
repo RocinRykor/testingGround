@@ -237,4 +237,8 @@ class ICProgram:
             self.ic_rating = ic_rating_table(8, 10, 11, 12)
 
     def __str__(self):
-        return f"{self.ic_category} {self.ic_level_color} -> {self.ic_type} - {self.ic_rating}"
+        # Verbose
+        # return f"{self.ic_category} {self.ic_level_color} -> {self.ic_type} - {self.ic_rating}"
+
+        # Basic
+        return f"{self.ic_type}-{self.ic_rating}"
