@@ -7,8 +7,8 @@ Intrusion Countermeasures, or IC (Pronounced as ICE), refers to autonomous syste
 IC can range from harmless, meant to delay or simply survey the decker and their actions, to absolutely lethal
 IC Levels: WHITE IC, GRAY IC, BLACK IC
 """
-from sheaf_generator.dice_roller import basic_roll
 from sheaf_generator import matrix_constants as matrix
+from sheaf_generator.dice_roller import basic_roll
 
 
 def roll_crippler_ripper() -> str:

@@ -6,7 +6,7 @@
 # At predetermined levels in the tally, or Trigger Steps, the host security will respond with IC or various alert stages.
 ###
 
-from typing import Dict, List
+from typing import Dict
 
 from sheaf_generator import matrix_constants as matrix
 from sheaf_generator.dice_roller import basic_roll
